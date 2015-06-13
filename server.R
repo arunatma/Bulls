@@ -18,14 +18,12 @@ calcCowsBulls = function (hiddenWord, givenWord){
     return(c(numBulls, numCows))
 }
 
-resultdf = data.frame()
-wordFound = FALSE
-fourLettered = as.vector(read.table("words.txt")[[1]])
-hiddenWord = ""
-
 shinyServer(function(input, output, session) {
+    resultdf = data.frame()
+    wordFound = FALSE
+    fourLettered = as.vector(read.table("words.txt")[[1]])
 
-    hiddenWord <<- sample(fourLettered, 1)
+    hiddenWord <- sample(fourLettered, 1)
     
     processNow <- reactive({
         # Change when the "update" button is pressed...
