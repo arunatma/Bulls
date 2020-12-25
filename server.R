@@ -1,6 +1,9 @@
 library(shiny)
+library(shinyjs)
 
 calcCowsBulls = function (hiddenWord, givenWord){
+    hiddenWord <- tolower(hiddenWord)
+    givenWord <- tolower(givenWord)
     if(givenWord == "") {
         return(c(-1,-1))
     }
@@ -19,72 +22,84 @@ calcCowsBulls = function (hiddenWord, givenWord){
 }
 
 shinyServer(function(input, output, session) {
-    resultdf = data.frame()
-    wordFound = FALSE
-    fourLettered = as.vector(read.table("words.txt")[[1]])
+    resultdf <- data.frame()
+    wordFound <- FALSE
+    out_message <- ""
+    fourLettered <-  as.vector(read.table("words.txt")[[1]])
 
     hiddenWord <- sample(fourLettered, 1)
     
-    processNow <- reactive({
-        # Change when the "update" button is pressed...
+    observe({
+        # Change when the "update" or "restart" button is pressed...
         input$update
         # ...but not for anything else
         isolate({
             validate(
                 need(nchar(input$guess) == 4, "Enter only 4 lettered word!")
             )        
+            this_word <- input$guess
             curVal = calcCowsBulls(hiddenWord, input$guess)
+            resultdf <<- resultdf[seq(dim(resultdf)[1],1),]
             resultdf <<- rbind(resultdf, 
-                data.frame(input$guess, curVal[1], curVal[2]))
-            names(resultdf) = c("Word", "Bulls", "Cows")
+                data.frame(Word=input$guess, Bulls=curVal[1], Cows=curVal[2]))
+            resultdf <<- resultdf[seq(dim(resultdf)[1],1),]
+#            names(resultdf) <- c("Word", "Bulls", "Cows")
             if(curVal[1] == 4){
                 wordFound <<- TRUE
             }
+            
+            if(wordFound == FALSE){
+                out_message <<- ""
+            }
+            
+            if(wordFound == TRUE){
+                numTry = dim(resultdf)[1]
+                print(dim(resultdf)[1])
+                out_message <<- paste("Word: ", this_word,"<br>Congratulations! Found in ", 
+                    numTry," attempt(s)!", sep = "")
+                
+                updateTextInput(session, "guess", value = "")
+                hiddenWord <<- sample(fourLettered, 1)
+                print(hiddenWord)
+                wordFound <<- FALSE
+                #resultdf <<- data.frame()
+                shinyjs::hide(id="update")
+            }            
             resultdf
         })
     })
 
-
-    restartNow <- reactive({
-        # Change when the "restart" button is pressed...
+    observe({
         input$restart
-        # ...but not for anything else
-        isolate({
-            hiddenWord <<- sample(fourLettered, 1)
-            print(hiddenWord)
-            resultdf <<- data.frame()
-            wordFound <<- FALSE
-        })
+        out_message <<- ""
+        updateTextInput(session, "guess", value = "")
+        shinyjs::show(id="update")
+
+        hiddenWord <<- sample(fourLettered, 1)
+        print(hiddenWord)
+        wordFound <<- FALSE
+        
+        resultdf <<- data.frame()        
     })
     
     output$result <- renderTable({
-        restartNow()
-        processNow()
+        input$update
+        input$restart
+        resultdf
     })
     
     output$hidden <- renderText({
         input$restart
         isolate({
             #hiddenWord
+            ""
         })    
     })
 
-    outMessage <-  reactive({
-        input$update
-        isolate({
-            msgVal = ""
-            if(wordFound == TRUE){
-                numTry = dim(resultdf)[1]
-                print(dim(resultdf)[1])
-                msgVal = paste("Congratulations! Found in ", 
-                    numTry," attempt(s)!", sep = "")
-            }
-            msgVal
-        })
-    })
-    
     output$winMessage <- renderText({
-        outMessage()
+        input$update
+        input$restart
+        out_message
     })
     
 })
